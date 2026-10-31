@@ -7,19 +7,30 @@ const apiUrl = import.meta.env.VITE_API_URL
 
 function App() {
   const [tasks, setTasks] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [token, setToken] = useState('')
+  const [token, setToken] = useState(() => localStorage.getItem('token') || '')
   const [loginError, setLoginError] = useState('')
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false)
 
   const loadTasks = async () => {
+    if (!token) {
+      setTasks([])
+      setLoading(false)
+      setError('')
+      return
+    }
+
     setLoading(true)
     setError('')
 
     try {
-      const response = await fetch(`${apiUrl}/api/tasks`)
+      const response = await fetch(`${apiUrl}/api/tasks`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
       if (!response.ok) {
         throw new Error('Unable to load tasks.')
@@ -36,8 +47,15 @@ function App() {
   }
 
   useEffect(() => {
+    if (!token) {
+      setTasks([])
+      setLoading(false)
+      setError('')
+      return
+    }
+
     loadTasks()
-  }, [])
+  }, [token])
 
   const handleLoginChange = (event) => {
     const { name, value } = event.target
@@ -67,6 +85,7 @@ function App() {
         throw new Error(data.error || 'Login failed.')
       }
 
+      localStorage.setItem('token', data.token)
       setToken(data.token)
       setLoginForm({ email: '', password: '' })
     } catch (loginFailure) {
@@ -76,11 +95,20 @@ function App() {
     }
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    setToken('')
+    setTasks([])
+    setError('')
+    setLoginError('')
+  }
+
   return (
     <main className="app-shell">
       <h1>Task Tracker</h1>
 
-      <form className="login-form" onSubmit={handleLoginSubmit}>
+      {!token ? (
+        <form className="login-form" onSubmit={handleLoginSubmit}>
         <h2>Login</h2>
 
         <label htmlFor="email">Email</label>
@@ -105,19 +133,26 @@ function App() {
           required
         />
 
-        <button type="submit" disabled={isSubmittingLogin}>
-          {isSubmittingLogin ? 'Logging in...' : 'Login'}
-        </button>
-      </form>
+          <button type="submit" disabled={isSubmittingLogin}>
+            {isSubmittingLogin ? 'Logging in...' : 'Login'}
+          </button>
+        </form>
+      ) : (
+        <>
+          <button type="button" className="logout-button" onClick={handleLogout}>
+            Logout
+          </button>
+
+          <TaskForm token={token} onTaskAdded={loadTasks} />
+
+          {loading && <p>Loading...</p>}
+          {!loading && error && <p className="error-message">{error}</p>}
+          {!loading && !error && tasks.length === 0 && <p className="empty-state">No tasks found.</p>}
+          {!loading && !error && tasks.length > 0 && <TaskList tasks={tasks} />}
+        </>
+      )}
 
       {loginError && <p className="error-message">{loginError}</p>}
-
-      <TaskForm token={token} onTaskAdded={loadTasks} />
-
-      {loading && <p>Loading...</p>}
-      {!loading && error && <p className="error-message">{error}</p>}
-      {!loading && !error && tasks.length === 0 && <p className="empty-state">No tasks found.</p>}
-      {!loading && !error && tasks.length > 0 && <TaskList tasks={tasks} />}
     </main>
   )
 }

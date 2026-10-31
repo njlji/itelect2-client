@@ -25,8 +25,6 @@ function TaskForm({ token, onTaskAdded }) {
       setIsSubmitting(true)
       setStatus('')
 
-      const base64Payload = token.split('.')[1]
-      const decodedToken = JSON.parse(atob(base64Payload))
       const response = await fetch(`${apiUrl}/api/tasks`, {
         method: 'POST',
         headers: {
@@ -37,7 +35,6 @@ function TaskForm({ token, onTaskAdded }) {
           title: trimmedTitle,
           dueDate: new Date().toISOString().slice(0, 10),
           completed: false,
-          userId: decodedToken.id,
         }),
       })
 
